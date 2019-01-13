@@ -34,7 +34,7 @@ FillEmptyHistory EncodeHistoryFill(std::string history_fill) {
   if (history_fill == "fen_only") return FillEmptyHistory::FEN_ONLY;
   if (history_fill == "always") return FillEmptyHistory::ALWAYS;
   assert(history_fill == "no");
-  return FillEmptyHistory::NO;
+  return FillEmptyHistory::NEVER;
 }
 
 }  // namespace

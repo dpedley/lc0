@@ -25,7 +25,7 @@
   Program grant you additional permission to convey the resulting work.
 */
 
-#include "src/utils/weights_adapter.h"
+#include "utils/weights_adapter.h"
 
 namespace lczero {
 float LayerAdapter::Iterator::ExtractValue(const uint16_t* ptr,

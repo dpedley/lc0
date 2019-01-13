@@ -56,7 +56,7 @@ struct SearchLimits {
   std::string DebugString() const;
 };
 
-class Search {
+class Search: public std::enable_shared_from_this<Search> {
  public:
   Search(const NodeTree& tree, Network* network,
          BestMoveInfo::Callback best_move_callback,
@@ -65,7 +65,7 @@ class Search {
          SyzygyTablebase* syzygy_tb);
 
   ~Search();
-
+    
   // Starts worker threads and returns immediately.
   void StartThreads(size_t how_many);
 
@@ -98,7 +98,10 @@ class Search {
  private:
   // Computes the best move, maybe with temperature (according to the settings).
   void EnsureBestMoveKnown();
-
+  std::thread CreateWorkerThread();
+  std::thread CreateWatchdogThread();
+  std::function<int ()> CreateTimeoutFunction();
+    
   // Returns a child with most visits, with or without temperature.
   // NoTemperature is safe to use on non-extended nodes, while WithTemperature
   // accepts only nodes with at least 1 visited child.
@@ -192,17 +195,20 @@ class Search {
 // within one thread, have to split into stages.
 class SearchWorker {
  public:
-  SearchWorker(Search* search, const SearchParams& params)
-      : search_(search), history_(search_->played_history_), params_(params) {}
+  SearchWorker(std::weak_ptr<Search> search, const PositionHistory& history, const SearchParams& params)
+      : search_(search), history_(history), params_(params) {}
 
   // Runs iterations while needed.
   void RunBlocking() {
     LOGFILE << "Started search thread.";
     // A very early stop may arrive before this point, so the test is at the end
     // to ensure at least one iteration runs before exiting.
+    bool isSearchActive = true;
     do {
       ExecuteOneIteration();
-    } while (search_->IsSearchActive());
+      auto strong = search_.lock();
+      isSearchActive = strong->IsSearchActive();
+    } while (isSearchActive);
   }
 
   // Does one full iteration of MCTS search:
@@ -284,7 +290,7 @@ class SearchWorker {
                              int idx_in_computation);
   void DoBackupUpdateSingleNode(const NodeToProcess& node_to_process);
 
-  Search* const search_;
+  std::weak_ptr<Search> search_;
   // List of nodes to process.
   std::vector<NodeToProcess> minibatch_;
   std::unique_ptr<CachingComputation> computation_;
